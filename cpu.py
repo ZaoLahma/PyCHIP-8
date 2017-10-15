@@ -28,14 +28,19 @@ class instructionSet(object):
         for i in range(NUM_INSTRUCTIONS):
             self.instructions[i] = instruction(self.illegalInstr)
 
-        self.instructions[0x6] = instruction(self.execLdReg)
-        self.instructions[0x8] = instruction(self.exec8XY, NUM_0x8_INSTRUCTIONS, self.illegalInstr)
+        self.instructions[0x1] = instruction(self.execJump)
+        self.instructions[0x6]  = instruction(self.execLdReg)
+        self.instructions[0x8]  = instruction(self.exec8XY, NUM_0x8_INSTRUCTIONS, self.illegalInstr)
         self.instructions[0x8].subInstructions[0x0] = instruction(self.execAssignXY)
-        self.instructions[0xA] = instruction(self.execSetI)
+        self.instructions[0xA]  = instruction(self.execSetI)
 
     def illegalInstr(self, cpu):
         print("Illegal instruction at " + hex(cpu.pc - PRG_START_ADDR))
         cpu.running = False
+
+    def execJump(self, cpu):
+        addr = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
+        cpu.pc = addr        
 
     def execLdReg(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
@@ -62,10 +67,6 @@ class instructionSet(object):
         cpu.I = val
         cpu.pc += 2
 
-    def execGoto(self, cpu):
-        addr = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
-        cpu.pc = addr
-
 class cpu(object):
     def __init__(self):
         self.ram = [U8_MAX] * RAM_SIZE
@@ -76,7 +77,7 @@ class cpu(object):
         self.running = False
         self.instructionSet = instructionSet()
 
-    def run(self, bin):
+    def run(self, bin, debugger):
         byteAddr = 0
         for byte in bin:
             self.ram[PRG_START_ADDR + byteAddr] = byte
@@ -84,6 +85,7 @@ class cpu(object):
 
         self.running = True
         while self.running:
+            debugger.trace()
             op = (self.ram[self.pc] & OPCODE_MASK) >> 4
             print("op: " + hex(op) + " (" + str(op) + ")")
             self.instructionSet.instructions[op].handle(self)
