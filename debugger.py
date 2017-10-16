@@ -7,8 +7,7 @@ class debugger(object):
     def __init__(self, cpu):
         self.cpu = cpu
         self.activated = False
-        self.pc = 0
-        self.prevPc = U16_MAX
+        self.pc = U16_MAX
 
     def activate(self):
         self.activated = True
@@ -23,5 +22,5 @@ class debugger(object):
             print("SP: " + hex(self.cpu.sp))
         if self.pc == self.cpu.pc:
             print("Execution hanging at " + hex(self.cpu.pc))
-            self.cpu.executing = False
+            self.cpu.stop()
         self.pc = self.cpu.pc

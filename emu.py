@@ -5,14 +5,17 @@ from cpu import cpu
 from gpu import gpu
 from debugger import debugger
 
+GRAPHICS_SCALE = 8
+
 class emu(object):
     def __init__(self):
         self.rom = rom()
-        self.gpu = gpu()
+        self.gpu = gpu(GRAPHICS_SCALE)
         self.cpu = cpu(self.gpu)
         self.debugger = debugger(self.cpu)
         self.debugger.activate()
 
     def run(self, binPath):
         self.rom.load(binPath)
-        self.cpu.run(self.rom.romData, self.debugger)
+        self.cpu.execProg(self.rom.romData, self.debugger)
+        self.gpu.pyGameMainLoop()
