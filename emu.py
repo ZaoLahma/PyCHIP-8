@@ -2,12 +2,14 @@
 
 from rom import rom
 from cpu import cpu
+from gpu import gpu
 from debugger import debugger
 
 class emu(object):
     def __init__(self):
         self.rom = rom()
-        self.cpu = cpu()
+        self.gpu = gpu()
+        self.cpu = cpu(self.gpu)
         self.debugger = debugger(self.cpu)
         self.debugger.activate()
 

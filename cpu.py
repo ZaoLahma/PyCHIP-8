@@ -13,7 +13,6 @@ PRG_START_ADDR        = 0x200
 OPCODE_MASK           = 0xF0
 ARG_HIGH_MASK         = 0x0F
 ARG_LOW_MASK          = 0xF0
-OPCODE_LOW_MASK       = 0x0F
 
 class instruction(object):
     def __init__(self, func, numSubInstructions = 0, illInstr = None):
@@ -35,12 +34,13 @@ class instructionSet(object):
         self.instructions[0xA]  = instruction(self.execSetI)
 
     def illegalInstr(self, cpu):
-        print("Illegal instruction at " + hex(cpu.pc - PRG_START_ADDR))
+        instr = (cpu.ram[cpu.pc] << 8) | cpu.ram[cpu.pc + 1]
+        print("Illegal instruction " + hex(instr) +  " at " + hex(cpu.pc - PRG_START_ADDR))
         cpu.running = False
 
     def execJump(self, cpu):
         addr = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
-        cpu.pc = addr        
+        cpu.pc = addr
 
     def execLdReg(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
@@ -49,7 +49,7 @@ class instructionSet(object):
         cpu.pc += 2
 
     def exec8XY(self, cpu):
-        subInstruction = (cpu.ram[cpu.pc + 1] & OPCODE_LOW_MASK)
+        subInstruction = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
         if subInstruction != 0xE:
             self.instructions[0x8].subInstructions[subInstruction].handle(cpu)
         else:
@@ -68,7 +68,8 @@ class instructionSet(object):
         cpu.pc += 2
 
 class cpu(object):
-    def __init__(self):
+    def __init__(self, gpu):
+        self.gpu = gpu
         self.ram = [U8_MAX] * RAM_SIZE
         self.V = [U16_MAX] * NUM_REGISTERS
         self.I = U16_MAX

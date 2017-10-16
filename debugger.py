@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 from cpu import NUM_REGISTERS
+from cpu import U16_MAX
 
 class debugger(object):
     def __init__(self, cpu):
         self.cpu = cpu
         self.activated = False
-        self.pc = 1
-        self.prevPc = 0
+        self.pc = 0
+        self.prevPc = U16_MAX
 
     def activate(self):
         self.activated = True
