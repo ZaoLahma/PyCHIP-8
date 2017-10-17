@@ -54,7 +54,6 @@ class InstructionSet(object):
 
     def execLdReg(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
-        print("reg: " + hex(reg))
         cpu.V[reg] = cpu.ram[cpu.pc + 1]
         cpu.pc += 2
 
@@ -77,8 +76,8 @@ class InstructionSet(object):
         cpu.I = val
         cpu.pc += 2
 
-    def execSetVram(self, xStartPos, yStartPos, num_bytes, cpu):
-        for yIndex in range(num_bytes):
+    def execSetVram(self, xStartPos, yStartPos, spriteHeight, cpu):
+        for yIndex in range(spriteHeight):
             cpu.V[0xF] = 0
             pixByte = bin(cpu.ram[cpu.I + yIndex])
             pixByte = pixByte[2:].zfill(8)
@@ -108,8 +107,8 @@ class InstructionSet(object):
         regYPos = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
         xPos = cpu.V[regXPos]
         yPos = cpu.V[regYPos]
-        pixSize = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
-        self.execSetVram(xPos, yPos, pixSize, cpu)
+        spriteSize = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
+        self.execSetVram(xPos, yPos, spriteSize, cpu)
         cpu.interrupt = SIG_DRAW_GRAPHICS
         cpu.pc += 2
 
@@ -156,9 +155,10 @@ class cpu(threading.Thread):
             if None != self.debugger:
                 self.debugger.trace()
             op = (self.ram[self.pc] & OPCODE_MASK) >> 4
-            print("op: " + hex(op) + " (" + str(op) + ")")
             self.instructionSet.instructions[op].handle(self)
 
+            # Execution of an instruction might lead to an interrupt
+            # which needs to be handled
             if None != self.interrupt:
                 self.interruptTable.interrupts[self.interrupt].handle(self)
                 self.interrupt = None

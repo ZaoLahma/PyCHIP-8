@@ -20,6 +20,8 @@ class debugger(object):
             print("I: " + hex(self.cpu.I))
             print("PC: " + hex(self.cpu.pc))
             print("SP: " + hex(self.cpu.sp))
+            instr = self.cpu.ram[self.cpu.pc] << 8 | self.cpu.ram[self.cpu.pc + 1]
+            print("Next instruction: " + hex(instr))
         if self.pc == self.cpu.pc:
             print("Execution hanging at " + hex(self.cpu.pc))
             self.cpu.stop()
