@@ -18,6 +18,8 @@ MISC_BCD                 = 0x33
 MISC_BCD_INDEX           = 0x0
 MISC_SET_SPRT_ADDR       = 0x29
 MISC_SET_SPRT_ADDR_INDEX = 0x1
+MISC_REG_LOAD            = 0x65
+MISC_REG_LOAD_INDEX      = 0x2
 
 PRG_START_ADDR           = 0x200
 
@@ -76,6 +78,7 @@ class InstructionSet(object):
         self.instructions[0xF] = Instruction(self.execMiscInstructions, NUM_MISC_INSTRUCTIONS, self.illegalInstr)
         self.instructions[0xF].subInstructions[MISC_BCD_INDEX] = Instruction(self.execBCD)
         self.instructions[0xF].subInstructions[MISC_SET_SPRT_ADDR_INDEX] = Instruction(self.execSetSprtAddress)
+        self.instructions[0xF].subInstructions[MISC_REG_LOAD_INDEX] = Instruction(self.execRegLoad)
 
     def getAddress(self, cpu):
         return ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -156,20 +159,30 @@ class InstructionSet(object):
             self.instructions[0xF].subInstructions[MISC_BCD_INDEX].handle(cpu)
         elif MISC_SET_SPRT_ADDR == instruction:
             self.instructions[0xF].subInstructions[MISC_SET_SPRT_ADDR_INDEX].handle(cpu)
+        elif MISC_REG_LOAD == instruction:
+            self.instructions[0xF].subInstructions[MISC_REG_LOAD_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
     def execBCD(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         val = cpu.V[reg]
-        cpu.ram[cpu.I] = val / 100
-        cpu.ram[cpu.I + 1] = (val % 100) / 10
-        cpu.ram[cpu.I + 2] = val % 10
+        cpu.ram[cpu.I] = int(val / 100)
+        cpu.ram[cpu.I + 1] = int((val % 100) / 10)
+        cpu.ram[cpu.I + 2] = int(val % 10)
 
     def execSetSprtAddress(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         val = cpu.V[reg]
-        cpu.I = val * FONT_SPRITE_SIZE
+        cpu.I = FONT_ADDRESS + val * FONT_SPRITE_SIZE
+
+    def execRegLoad(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        print("Setting registers to " + hex(reg))
+        for i in range(reg + 1):
+            cpu.V[i] = cpu.ram[cpu.I]
+            print("Set V[" + str(i) + "] to " + str(cpu.ram[cpu.I]))
+            cpu.I += 1
 
 class Interrupt(object):
     def __init__(self, handle):
