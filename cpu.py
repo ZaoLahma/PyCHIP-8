@@ -79,8 +79,9 @@ class InstructionSet(object):
 
     def execSetVram(self, xStartPos, yStartPos, num_bytes, cpu):
         for yIndex in range(num_bytes):
-            color_byte = bin(cpu.ram[cpu.I + yIndex])
-            color_byte = color_byte[2:].zfill(8)
+            cpu.V[0xF] = 0
+            pixByte = bin(cpu.ram[cpu.I + yIndex])
+            pixByte = pixByte[2:].zfill(8)
             yCoord = yStartPos + yIndex
             yCoord = yCoord % 32
 
@@ -89,7 +90,7 @@ class InstructionSet(object):
                 xCoord = xStartPos + xIndex
                 xCoord = xCoord % 64
 
-                pixVal = int(color_byte[xIndex])
+                pixVal = int(pixByte[xIndex])
                 # Set pixel to new pix val XOR old pix val
                 oldPixVal = cpu.vram[xCoord * yCoord]
                 if pixVal == 1 and oldPixVal == 1:
@@ -105,7 +106,6 @@ class InstructionSet(object):
     def execRendering(self, cpu):
         regXPos = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         regYPos = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
-        print("Printing graphics from regs: " + hex(regXPos) + ", " + hex(regYPos))
         xPos = cpu.V[regXPos]
         yPos = cpu.V[regYPos]
         pixSize = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
