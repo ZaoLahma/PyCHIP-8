@@ -21,30 +21,32 @@ ARG_LOW_MASK          = 0xF0
 
 SPRITE_WIDTH          = 0x8
 
-class instruction(object):
+NUM_INTERRUPTS        = 0x2
+SIG_ILL_INSTR         = 0x0
+SIG_DRAW_GRAPHICS     = 0x1
+
+class Instruction(object):
     def __init__(self, func, numSubInstructions = 0, illInstr = None):
         self.handle = func
         self.subInstructions = []
         for i in range(numSubInstructions):
-            self.subInstructions.append(instruction(illInstr))
+            self.subInstructions.append(Instruction(illInstr))
 
-class instructionSet(object):
+class InstructionSet(object):
     def __init__(self):
         self.instructions = [None] * NUM_INSTRUCTIONS
         for i in range(NUM_INSTRUCTIONS):
-            self.instructions[i] = instruction(self.illegalInstr)
+            self.instructions[i] = Instruction(self.illegalInstr)
 
-        self.instructions[0x1] = instruction(self.execJump)
-        self.instructions[0x6] = instruction(self.execLdReg)
-        self.instructions[0x8] = instruction(self.exec8XY, NUM_0x8_INSTRUCTIONS, self.illegalInstr)
-        self.instructions[0x8].subInstructions[0x0] = instruction(self.execAssignXY)
-        self.instructions[0xA] = instruction(self.execSetI)
-        self.instructions[0xD] = instruction(self.execRendering)
+        self.instructions[0x1] = Instruction(self.execJump)
+        self.instructions[0x6] = Instruction(self.execLdReg)
+        self.instructions[0x8] = Instruction(self.exec8XY, NUM_0x8_INSTRUCTIONS, self.illegalInstr)
+        self.instructions[0x8].subInstructions[0x0] = Instruction(self.execAssignXY)
+        self.instructions[0xA] = Instruction(self.execSetI)
+        self.instructions[0xD] = Instruction(self.execRendering)
 
     def illegalInstr(self, cpu):
-        instr = (cpu.ram[cpu.pc] << 8) | cpu.ram[cpu.pc + 1]
-        print("Illegal instruction " + hex(instr) +  " at " + hex(cpu.pc - PRG_START_ADDR))
-        cpu.running = False
+        cpu.interrupt = SIG_ILL_INSTR
 
     def execJump(self, cpu):
         addr = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -75,6 +77,31 @@ class instructionSet(object):
         cpu.I = val
         cpu.pc += 2
 
+    def execSetVram(self, xStartPos, yStartPos, num_bytes, cpu):
+        for yIndex in range(num_bytes):
+            color_byte = bin(cpu.ram[cpu.I + yIndex])
+            color_byte = color_byte[2:].zfill(8)
+            yCoord = yStartPos + yIndex
+            yCoord = yCoord % 32
+
+            for xIndex in range(8):
+
+                xCoord = xStartPos + xIndex
+                xCoord = xCoord % 64
+
+                pixVal = int(color_byte[xIndex])
+                # Set pixel to new pix val XOR old pix val
+                oldPixVal = cpu.vram[xCoord * yCoord]
+                if pixVal == 1 and oldPixVal == 1:
+                    cpu.V[0xF] = cpu.V[0xF] | 1
+                    pixVal = 0
+                elif pixVal == 0 and oldPixVal == 1:
+                    pixVal = 1
+
+                cpu.vram[xCoord * yCoord] = pixVal
+                cpu.gpu.drawPixel(xCoord, yCoord, pixVal)
+
+
     def execRendering(self, cpu):
         regXPos = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         regYPos = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
@@ -82,34 +109,30 @@ class instructionSet(object):
         xPos = cpu.V[regXPos]
         yPos = cpu.V[regYPos]
         pixSize = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
-        pixData = [None] * pixSize
-        for pixIndex in range(pixSize):
-            pixData[pixIndex] = cpu.ram[cpu.I + pixIndex]
-            print("pixel: " + hex(pixData[pixIndex]))
-            pixIndex += 1
+        self.execSetVram(xPos, yPos, pixSize, cpu)
+        cpu.interrupt = SIG_DRAW_GRAPHICS
+        cpu.pc += 2
 
-        print("Graphics starting at: " + hex(xPos) + ", " + hex(yPos) + ". Height: " + hex(pixSize))
-        for y in range(pixSize):
-            yCoord = y + yPos
-            yCoord = yCoord % 32
-            for x in range(SPRITE_WIDTH):
-                xCoord = x + xPos
-                xCoord = xCoord % 64
-                cpu.vram[yCoord * xCoord] = pixData[y]
-                print("Set pix " + hex(y + yPos) + ", " + hex(x + xPos) + " to " + hex(cpu.vram[(y + yPos) * (x + xPos)]))
-        x = 0
-        y = 0
-        for byte in cpu.vram:
-            if 0x0 != byte:
-                cpu.gpu.drawPixel(x, y, 1)
-            else:
-                cpu.gpu.drawPixel(x, y, 0)
-            x += 1
-            if x == 64:
-                x = 0
-                y += 1
+class Interrupt(object):
+    def __init__(self, handle):
+        self.handle = handle
+
+class Interrupts(object):
+    def __init__(self):
+        self.interrupts = [None] * NUM_INTERRUPTS
+        for i in range(NUM_INTERRUPTS):
+            self.interrupts[i] = Interrupt(self.illegalInstr)
+
+        self.interrupts[0x1] = Interrupt(self.drawGraphics)
+
+    def illegalInstr(self, cpu):
+        instr = (cpu.ram[cpu.pc] << 8) | cpu.ram[cpu.pc + 1]
+        print("Illegal instruction " + hex(instr) +  " at " + hex(cpu.pc - PRG_START_ADDR))
+        cpu.running = False
+
+    def drawGraphics(self, cpu):
         cpu.gpu.render()
-        #cpu.pc += 2
+
 
 class cpu(threading.Thread):
     def __init__(self, gpu):
@@ -122,8 +145,10 @@ class cpu(threading.Thread):
         self.pc = PRG_START_ADDR
         self.sp = 0
         self.running = False
-        self.instructionSet = instructionSet()
+        self.instructionSet = InstructionSet()
         self.debugger = None
+        self.interrupt = None
+        self.interruptTable = Interrupts()
 
     def run(self):
         self.running = True
@@ -133,6 +158,10 @@ class cpu(threading.Thread):
             op = (self.ram[self.pc] & OPCODE_MASK) >> 4
             print("op: " + hex(op) + " (" + str(op) + ")")
             self.instructionSet.instructions[op].handle(self)
+
+            if None != self.interrupt:
+                self.interruptTable.interrupts[self.interrupt].handle(self)
+                self.interrupt = None
 
     def stop(self):
         self.running = False

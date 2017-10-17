@@ -5,7 +5,7 @@ from cpu import cpu
 from gpu import gpu
 from debugger import debugger
 
-GRAPHICS_SCALE = 8
+GRAPHICS_SCALE = 20
 
 class emu(object):
     def __init__(self):

@@ -25,12 +25,11 @@ class gpu(object):
         pygame.display.flip()
 
     def drawPixel(self, xPos, yPos, color):
-        x_base = xPos * self.scale
-        y_base = yPos * self.scale
-        #print("Drawing pixel at " + hex(xPos) + ", " + hex(yPos) + ". Color: " + str(COLORS[color]))
+        xStart = xPos * self.scale
+        yStart = yPos * self.scale
         pygame.draw.rect(self.surface,
                          COLORS[color],
-                         (x_base, y_base, self.scale, self.scale))
+                         (xStart, yStart, self.scale, self.scale))
 
     def render(self):
         self.display.blit(self.surface, (0, 0))
