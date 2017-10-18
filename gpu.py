@@ -5,8 +5,8 @@ import pygame
 SCREEN_X_SIZE = 64
 SCREEN_Y_SIZE = 32
 
-COLORS = (pygame.Color(0, 0, 0, 255),
-          pygame.Color(255, 255, 255, 255))
+COLORS = (pygame.Color(192, 192, 192, 255),
+          pygame.Color(100, 80, 255, 255))
 
 class Gpu(object):
     def __init__(self, scale):
@@ -14,7 +14,6 @@ class Gpu(object):
         self.scale = scale
         if None == self.scale:
             self.scale = 1
-        print("Scale: " + str(self.scale))
         pygame.display.init()
         self.display = pygame.display.set_mode((SCREEN_X_SIZE * self.scale, SCREEN_Y_SIZE * self.scale))
 
@@ -24,7 +23,7 @@ class Gpu(object):
                                        SCREEN_Y_SIZE * self.scale),
                                        pygame.HWSURFACE | pygame.DOUBLEBUF,
                                        8)
-        self.surface.fill(pygame.Color(0, 0, 0, 255))
+        self.surface.fill(COLORS[0])
         self.display.blit(self.surface, (0, 0))
         pygame.display.flip()
 
