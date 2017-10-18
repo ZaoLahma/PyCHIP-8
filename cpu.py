@@ -198,11 +198,11 @@ class InstructionSet(object):
         regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         regY = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
         val = cpu.V[regX] - cpu.V[regY]
-        if cpu.V[regX] < 255:
+        if cpu.V[regX] < cpu.V[regY]:
             val += 256
-            cpu.V[0xF] = 1
-        else:
             cpu.V[0xF] = 0
+        else:
+            cpu.V[0xF] = 1
         cpu.V[regX] = val
 
     def execSetI(self, cpu):

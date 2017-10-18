@@ -14,8 +14,8 @@ class Emu(object):
         self.cpu = Cpu(self.gpu)
         self.gpu.setCpu(self.cpu)
         self.debugger = None
+        self.debugger = Debugger(self.cpu)        
         if True == debug:
-            self.debugger = debugger(self.cpu)
             self.debugger.activate()
 
     def run(self, binPath):

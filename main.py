@@ -5,10 +5,16 @@ from emu import Emu
 
 if "__main__" == __name__:
     debug = False
-    print("argv: " + str(sys.argv))
-    if len(sys.argv) == 2:
-        if "db" == sys.argv[1]:
+    romPath = None
+    if len(sys.argv) == 3:
+        if "db" in sys.argv:
             debug = True
+        if "-r" in sys.argv:
+            index = sys.argv.index("-r")
+            romPath = sys.argv[index + 1]
 
     emu = Emu(debug)
-    emu.run("./roms/games/Pong (1 player).ch8")
+    if None != romPath:
+        emu.run(romPath)
+    else:
+        print("Provide rom path with -r Eg. python3 main.py -r Pong\ \(1\ player\).ch8")
