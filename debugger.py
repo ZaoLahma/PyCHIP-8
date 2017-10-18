@@ -44,5 +44,5 @@ class Debugger(object):
 
             if self.pc == self.cpu.pc:
                 print("Execution hanging at " + hex(self.cpu.pc))
-                self.cpu.stop()
+                #self.cpu.stop()
             self.pc = self.cpu.pc

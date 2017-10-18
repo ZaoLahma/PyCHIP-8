@@ -12,13 +12,16 @@ class Gpu(object):
     def __init__(self, scale):
         self.cpu = None
         self.scale = scale
+        if None == self.scale:
+            self.scale = 1
+        print("Scale: " + str(self.scale))
         pygame.display.init()
-        self.display = pygame.display.set_mode((SCREEN_X_SIZE * scale, SCREEN_Y_SIZE * scale))
+        self.display = pygame.display.set_mode((SCREEN_X_SIZE * self.scale, SCREEN_Y_SIZE * self.scale))
 
         pygame.display.set_caption("PyCHIP-8")
 
-        self.surface = pygame.Surface((SCREEN_X_SIZE * scale,
-                                       SCREEN_Y_SIZE * scale),
+        self.surface = pygame.Surface((SCREEN_X_SIZE * self.scale,
+                                       SCREEN_Y_SIZE * self.scale),
                                        pygame.HWSURFACE | pygame.DOUBLEBUF,
                                        8)
         self.surface.fill(pygame.Color(0, 0, 0, 255))
@@ -38,10 +41,3 @@ class Gpu(object):
 
     def setCpu(self, cpu):
         self.cpu = cpu
-
-    def pyGameMainLoop(self):
-        while 1:
-            event = pygame.event.wait ()
-            if event.type == pygame.QUIT:
-                self.cpu.running = False
-                raise SystemExit

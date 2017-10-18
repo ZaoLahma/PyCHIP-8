@@ -6,14 +6,19 @@ from emu import Emu
 if "__main__" == __name__:
     debug = False
     romPath = None
-    if len(sys.argv) == 3:
-        if "db" in sys.argv:
+    graphicsScale = 5
+    print(str(sys.argv))
+    if len(sys.argv) > 0:
+        if 'db' in sys.argv:
             debug = True
-        if "-r" in sys.argv:
-            index = sys.argv.index("-r")
+        if '-r' in sys.argv:
+            index = sys.argv.index('-r')
             romPath = sys.argv[index + 1]
+        if '-s' in sys.argv:
+            index = sys.argv.index('-s')
+            graphicsScale =int(sys.argv[index + 1])
 
-    emu = Emu(debug)
+    emu = Emu(debug, graphicsScale)
     if None != romPath:
         emu.run(romPath)
     else:

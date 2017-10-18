@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pygame
+import threading
 
 KEYS = {
     0x0: pygame.K_KP0,
@@ -22,6 +23,9 @@ KEYS = {
 }
 
 class Keyboard(object):
+    def __init__(self):
+        self.pressedKeys = None
+        self.pressedKeysCond = threading.Condition()
 
     def keyPressed(self, keyToCheck):
         retVal = False
@@ -29,3 +33,20 @@ class Keyboard(object):
         if pressedKeys[KEYS[keyToCheck]]:
             retVal = True
         return retVal
+
+    def keyPressedIndication(self, pressedKeys):
+        with self.pressedKeysCond:
+            self.pressedKeys = pressedKeys
+            self.pressedKeysCond.notifyAll()
+
+    def waitKeyPressed(self):
+        keyVal = None
+        keyPressed = False
+        while not keyPressed:
+            with self.pressedKeysCond:
+                self.pressedKeysCond.wait()
+                for keyVal, lookupKey in KEYS.items():
+                    if self.pressedKeys[lookupKey]:
+                        keyPressed = True
+                        break
+        return keyVal

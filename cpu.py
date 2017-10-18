@@ -31,6 +31,8 @@ MISC_GET_DLY_TIMER       = 0x7
 MISC_GET_DLY_TIMER_INDEX = 0x4
 MISC_SET_SND_TIMER       = 0x18
 MISC_SET_SND_TIMER_INDEX = 0x5
+MISC_WAIT_KEY            = 0x0A
+MISC_WAIT_KEY_INDEX      = 0x6
 
 NUM_CRLRET_INSTRUCTINS   = 0x2
 CLRRET_RET               = 0xEE
@@ -112,6 +114,7 @@ class InstructionSet(object):
         self.instructions[0xF].subInstructions[MISC_SET_DLY_TIMER_INDEX] = Instruction(self.execSetDlyTmr)
         self.instructions[0xF].subInstructions[MISC_GET_DLY_TIMER_INDEX] = Instruction(self.execGetDlyTmr)
         self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX] = Instruction(self.execSetSndTmr)
+        self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX] = Instruction(self.execKbRoutine)
 
     def getAddress(self, cpu):
         return ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -164,7 +167,11 @@ class InstructionSet(object):
 
     def execAddX(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
-        cpu.V[reg] += cpu.ram[cpu.pc + 1]
+        val = cpu.V[reg] + cpu.ram[cpu.pc + 1]
+        if val > 255:
+            val = val - 256
+        cpu.V[reg] = val
+
 
     def exec8XY(self, cpu):
         subInstruction = (cpu.ram[cpu.pc + 1] & ARG_HIGH_MASK)
@@ -253,11 +260,14 @@ class InstructionSet(object):
         subRoutine = cpu.ram[cpu.pc + 1]
 
         if 0x9E == subRoutine:
-             if True == cpu.keyboard.keyPressed(cpu.V[reg]):
-                 cpu.pc += 2
+            if True == cpu.keyboard.keyPressed(cpu.V[reg]):
+             cpu.pc += 2
         elif 0xA1 == subRoutine:
-             if False == cpu.keyboard.keyPressed(cpu.V[reg]):
-                 cpu.pc += 2
+            if False == cpu.keyboard.keyPressed(cpu.V[reg]):
+             cpu.pc += 2
+        elif 0x0A == subRoutine:
+            key = cpu.keyboard.waitKeyPressed()
+            cpu.V[reg] = key
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -276,6 +286,8 @@ class InstructionSet(object):
             self.instructions[0xF].subInstructions[MISC_GET_DLY_TIMER_INDEX].handle(cpu)
         elif MISC_SET_SND_TIMER == instruction:
             self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX].handle(cpu)
+        elif MISC_WAIT_KEY == instruction:
+            self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -347,7 +359,7 @@ class Cpu(threading.Thread):
         self.ram = [U8_MAX] * RAM_SIZE
         self.vram = [0x0] * VRAM_SIZE
 
-        self.V = [U16_MAX] * NUM_REGISTERS
+        self.V = [U8_MAX] * NUM_REGISTERS
         self.I = U16_MAX
         self.D = 0x0
         self.S = 0x0
