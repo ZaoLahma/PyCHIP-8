@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import threading
+from gpu import SCREEN_X_SIZE
+from gpu import SCREEN_Y_SIZE
 
 U8_MAX                   = 0xFF
 U16_MAX                  = 0xFFFF
 
 RAM_SIZE                 = 4096
-VRAM_SIZE                = 64 * 32
+VRAM_SIZE                = SCREEN_X_SIZE * SCREEN_Y_SIZE
 STACK_SIZE               = 16
 
 NUM_REGISTERS            = 0x10
@@ -124,22 +126,23 @@ class InstructionSet(object):
             pixByte = bin(cpu.ram[cpu.I + yIndex])
             pixByte = pixByte[2:].zfill(8)
             yCoord = yStartPos + yIndex
-            yCoord = yCoord % 32
+            yCoord = yCoord % SCREEN_Y_SIZE
 
             for xIndex in range(8):
                 xCoord = xStartPos + xIndex
-                xCoord = xCoord % 64
+                xCoord = xCoord % SCREEN_X_SIZE
 
                 pixVal = int(pixByte[xIndex])
                 # Set pixel to new pix val XOR old pix val
-                oldPixVal = cpu.vram[xCoord * yCoord]
+                vramAddr = yCoord * SCREEN_X_SIZE + xCoord
+                oldPixVal = cpu.vram[vramAddr]
                 if pixVal == 1 and oldPixVal == 1:
                     cpu.V[0xF] = cpu.V[0xF] | 1
                     pixVal = 0
                 elif pixVal == 0 and oldPixVal == 1:
                     pixVal = 1
 
-                cpu.vram[xCoord * yCoord] = pixVal
+                cpu.vram[vramAddr] = pixVal
                 cpu.gpu.drawPixel(xCoord, yCoord, pixVal)
 
     def execRendering(self, cpu):
