@@ -10,6 +10,7 @@ COLORS = (pygame.Color(0, 0, 0, 255),
 
 class gpu(object):
     def __init__(self, scale):
+        self.cpu = None
         self.scale = scale
         pygame.display.init()
         self.display = pygame.display.set_mode((SCREEN_X_SIZE * scale, SCREEN_Y_SIZE * scale))
@@ -35,8 +36,12 @@ class gpu(object):
         self.display.blit(self.surface, (0, 0))
         pygame.display.flip()
 
+    def setCpu(self, cpu):
+        self.cpu = cpu
+
     def pyGameMainLoop(self):
         while 1:
             event = pygame.event.wait ()
             if event.type == pygame.QUIT:
+                self.cpu.running = False
                 raise SystemExit

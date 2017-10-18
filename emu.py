@@ -12,6 +12,7 @@ class emu(object):
         self.rom = rom()
         self.gpu = gpu(GRAPHICS_SCALE)
         self.cpu = cpu(self.gpu)
+        self.gpu.setCpu(self.cpu)
         self.debugger = None
         if True == debug:
             self.debugger = debugger(self.cpu)
