@@ -6,7 +6,7 @@ from cpu import PRG_START_ADDR
 
 STEP = 0xFFFFFFFF
 
-class debugger(object):
+class Debugger(object):
     def __init__(self, cpu):
         self.cpu = cpu
         self.activated = False

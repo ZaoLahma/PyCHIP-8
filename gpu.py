@@ -8,7 +8,7 @@ SCREEN_Y_SIZE = 32
 COLORS = (pygame.Color(0, 0, 0, 255),
           pygame.Color(255, 255, 255, 255))
 
-class gpu(object):
+class Gpu(object):
     def __init__(self, scale):
         self.cpu = None
         self.scale = scale

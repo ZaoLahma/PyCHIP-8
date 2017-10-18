@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-from emu import emu
+from emu import Emu
 
 if "__main__" == __name__:
     debug = False
@@ -10,5 +10,5 @@ if "__main__" == __name__:
         if "db" == sys.argv[1]:
             debug = True
 
-    emu = emu(debug)
+    emu = Emu(debug)
     emu.run("./roms/games/Pong (1 player).ch8")

@@ -5,6 +5,7 @@ import time
 import random
 from gpu import SCREEN_X_SIZE
 from gpu import SCREEN_Y_SIZE
+from keyboard import Keyboard
 
 U8_MAX                   = 0xFF
 U16_MAX                  = 0xFFFF
@@ -28,6 +29,8 @@ MISC_SET_DLY_TIMER       = 0x15
 MISC_SET_DLY_TIMER_INDEX = 0x3
 MISC_GET_DLY_TIMER       = 0x7
 MISC_GET_DLY_TIMER_INDEX = 0x4
+MISC_SET_SND_TIMER       = 0x18
+MISC_SET_SND_TIMER_INDEX = 0x5
 
 NUM_CRLRET_INSTRUCTINS   = 0x2
 CLRRET_RET               = 0xEE
@@ -90,19 +93,25 @@ class InstructionSet(object):
         self.instructions[0x1] = Instruction(self.execJump)
         self.instructions[0x2] = Instruction(self.execCall)
         self.instructions[0x3] = Instruction(self.execSkpInstrIfEqVX)
+        self.instructions[0x4] = Instruction(self.execSkpInstrIfNotEqVX)
         self.instructions[0x6] = Instruction(self.execLdReg)
         self.instructions[0x7] = Instruction(self.execAddX)
         self.instructions[0x8] = Instruction(self.exec8XY, NUM_0x8_INSTRUCTIONS, self.illegalInstr)
         self.instructions[0x8].subInstructions[0x0] = Instruction(self.execAssignXY)
+        self.instructions[0x8].subInstructions[0x2] = Instruction(self.execAndXY)
+        self.instructions[0x8].subInstructions[0x4] = Instruction(self.execAddXY)
+        self.instructions[0x8].subInstructions[0x5] = Instruction(self.execSubXY)
         self.instructions[0xA] = Instruction(self.execSetI)
         self.instructions[0xC] = Instruction(self.execRandVX)
         self.instructions[0xD] = Instruction(self.execRendering)
+        self.instructions[0xE] = Instruction(self.execKbRoutine)
         self.instructions[0xF] = Instruction(self.execMiscInstructions, NUM_MISC_INSTRUCTIONS, self.illegalInstr)
         self.instructions[0xF].subInstructions[MISC_BCD_INDEX] = Instruction(self.execBCD)
         self.instructions[0xF].subInstructions[MISC_SET_SPRT_ADDR_INDEX] = Instruction(self.execSetSprtAddress)
         self.instructions[0xF].subInstructions[MISC_REG_LOAD_INDEX] = Instruction(self.execRegLoad)
         self.instructions[0xF].subInstructions[MISC_SET_DLY_TIMER_INDEX] = Instruction(self.execSetDlyTmr)
         self.instructions[0xF].subInstructions[MISC_GET_DLY_TIMER_INDEX] = Instruction(self.execGetDlyTmr)
+        self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX] = Instruction(self.execSetSndTmr)
 
     def getAddress(self, cpu):
         return ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -143,6 +152,12 @@ class InstructionSet(object):
         if val == cpu.V[reg]:
             cpu.pc += 2
 
+    def execSkpInstrIfNotEqVX(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        val = cpu.ram[cpu.pc + 1]
+        if val != cpu.V[reg]:
+            cpu.pc += 2
+
     def execLdReg(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         cpu.V[reg] = cpu.ram[cpu.pc + 1]
@@ -162,6 +177,33 @@ class InstructionSet(object):
         regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         regY = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
         cpu.V[regX] = cpu.V[regY]
+
+    def execAndXY(self, cpu):
+        regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        regY = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
+        cpu.V[regX] = cpu.V[regX] & cpu.V[regY]
+
+    def execAddXY(self, cpu):
+        regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        regY = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
+        val = cpu.V[regX] + cpu.V[regY]
+        if val > 255:
+            val -= 256
+            cpu.V[0xF] = 1
+        else:
+            cpu.V[0xF] = 0
+        cpu.V[regX] = val
+
+    def execSubXY(self, cpu):
+        regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        regY = (cpu.ram[cpu.pc + 1] & ARG_LOW_MASK) >> 4
+        val = cpu.V[regX] - cpu.V[regY]
+        if cpu.V[regX] < 255:
+            val += 256
+            cpu.V[0xF] = 1
+        else:
+            cpu.V[0xF] = 0
+        cpu.V[regX] = val
 
     def execSetI(self, cpu):
         val = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -206,6 +248,20 @@ class InstructionSet(object):
         self.execSetVram(xPos, yPos, spriteSize, cpu)
         cpu.interrupt = SIG_DRAW_GRAPHICS
 
+    def execKbRoutine(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        subRoutine = cpu.ram[cpu.pc + 1]
+
+        if 0x9E == subRoutine:
+             if True == cpu.keyboard.keyPressed(cpu.V[reg]):
+                 cpu.pc += 2
+        elif 0xA1 == subRoutine:
+             if False == cpu.keyboard.keyPressed(cpu.V[reg]):
+                 cpu.pc += 2
+        else:
+            cpu.interrupt = SIG_ILL_INSTR
+
+
     def execMiscInstructions(self, cpu):
         instruction = cpu.ram[cpu.pc + 1]
         if MISC_BCD == instruction:
@@ -218,6 +274,8 @@ class InstructionSet(object):
             self.instructions[0xF].subInstructions[MISC_SET_DLY_TIMER_INDEX].handle(cpu)
         elif MISC_GET_DLY_TIMER == instruction:
             self.instructions[0xF].subInstructions[MISC_GET_DLY_TIMER_INDEX].handle(cpu)
+        elif MISC_SET_SND_TIMER == instruction:
+            self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -246,6 +304,10 @@ class InstructionSet(object):
     def execGetDlyTmr(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         cpu.V[reg] = cpu.D
+
+    def execSetSndTmr(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        cpu.S = cpu.V[reg]
 
 class Interrupt(object):
     def __init__(self, handle):
@@ -278,7 +340,7 @@ class Interrupts(object):
         cpu.running = False
 
 
-class cpu(threading.Thread):
+class Cpu(threading.Thread):
     def __init__(self, gpu):
         threading.Thread.__init__(self)
         self.gpu = gpu
@@ -302,6 +364,8 @@ class cpu(threading.Thread):
         self.interruptTable = Interrupts()
 
         self.delayCycle = 0
+
+        self.keyboard = Keyboard()
 
         fontOffset = 0
         for font in FONT_SPRITES:

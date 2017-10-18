@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import struct
 
-class rom(object):
+class Rom(object):
     def __init__(self):
         self.romData = []
 

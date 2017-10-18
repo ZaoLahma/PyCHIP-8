@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-from rom import rom
-from cpu import cpu
-from gpu import gpu
-from debugger import debugger
+from rom import Rom
+from cpu import Cpu
+from gpu import Gpu
+from debugger import Debugger
 
 GRAPHICS_SCALE = 20
 
-class emu(object):
+class Emu(object):
     def __init__(self, debug):
-        self.rom = rom()
-        self.gpu = gpu(GRAPHICS_SCALE)
-        self.cpu = cpu(self.gpu)
+        self.rom = Rom()
+        self.gpu = Gpu(GRAPHICS_SCALE)
+        self.cpu = Cpu(self.gpu)
         self.gpu.setCpu(self.cpu)
         self.debugger = None
         if True == debug:
