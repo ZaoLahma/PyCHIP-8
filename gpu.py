@@ -34,7 +34,15 @@ class Gpu(object):
                          COLORS[color],
                          (xStart, yStart, self.scale, self.scale))
 
-    def render(self):
+    def render(self, vram):
+        x = 0
+        y = 0
+        for byte in vram:
+            self.drawPixel(x, y, byte)
+            x += 1
+            if x == SCREEN_X_SIZE:
+                y += 1
+                x = 0
         self.display.blit(self.surface, (0, 0))
         pygame.display.flip()
 

@@ -37,7 +37,8 @@ MISC_WAIT_KEY_INDEX      = 0x6
 NUM_CRLRET_INSTRUCTINS   = 0x2
 CLRRET_RET               = 0xEE
 CLRRET_RET_INDEX         = 0x0
-
+CLRRET_CLRSCRN           = 0xE0
+CLRRET_CLRSCRN_INDEX     = 0x1
 PRG_START_ADDR           = 0x200
 
 OPCODE_MASK              = 0xF0
@@ -92,6 +93,7 @@ class InstructionSet(object):
 
         self.instructions[0x0] = Instruction(self.execClrRet, NUM_CRLRET_INSTRUCTINS, self.illegalInstr)
         self.instructions[0x0].subInstructions[CLRRET_RET_INDEX] = Instruction(self.execRet)
+        self.instructions[0x0].subInstructions[CLRRET_CLRSCRN_INDEX] = Instruction(self.execClrScrn)
         self.instructions[0x1] = Instruction(self.execJump)
         self.instructions[0x2] = Instruction(self.execCall)
         self.instructions[0x3] = Instruction(self.execSkpInstrIfEqVX)
@@ -126,6 +128,8 @@ class InstructionSet(object):
         subInstruction = cpu.ram[cpu.pc + 1]
         if CLRRET_RET == subInstruction:
             self.instructions[0x0].subInstructions[CLRRET_RET_INDEX].handle(cpu)
+        elif CLRRET_CLRSCRN == subInstruction:
+            self.instructions[0x0].subInstructions[CLRRET_CLRSCRN_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -136,6 +140,11 @@ class InstructionSet(object):
             cpu.pc = retAddr
         else:
             cpu.interrupt = SIG_STACK_UNDERFLOW
+
+    def execClrScrn(self, cpu):
+        for byte in cpu.vram:
+            byte = 0x0
+        cpu.interrupt = SIG_DRAW_GRAPHICS
 
     def execJump(self, cpu):
         cpu.pc = self.getAddress(cpu) - 2
@@ -243,7 +252,6 @@ class InstructionSet(object):
                     pixVal = 1
 
                 cpu.vram[vramAddr] = pixVal
-                cpu.gpu.drawPixel(xCoord, yCoord, pixVal)
 
     def execRendering(self, cpu):
         regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
@@ -270,7 +278,6 @@ class InstructionSet(object):
             cpu.V[reg] = key
         else:
             cpu.interrupt = SIG_ILL_INSTR
-
 
     def execMiscInstructions(self, cpu):
         instruction = cpu.ram[cpu.pc + 1]
@@ -341,7 +348,7 @@ class Interrupts(object):
         cpu.running = False
 
     def drawGraphics(self, cpu):
-        cpu.gpu.render()
+        cpu.gpu.render(cpu.vram)
 
     def stackOverflow(self, cpu):
         print("Stack overflow at " + hex(cpu.pc - PRG_START_ADDR))
@@ -387,32 +394,30 @@ class Cpu(threading.Thread):
     def run(self):
         self.running = True
         while self.running:
-            if None != self.debugger:
-                self.debugger.trace()
-            timeBefore = time.time() * 1000
-            op = (self.ram[self.pc] & OPCODE_MASK) >> 4
-            self.instructionSet.instructions[op].handle(self)
+            self.debugger.trace()
 
-            # Execution of an instruction might lead to an interrupt
-            # which needs to be handled
             if None != self.interrupt:
                 self.interruptTable.interrupts[self.interrupt].handle(self)
                 self.interrupt = None
-            self.pc += 2
+            else:
+                timeBefore = time.time() * 1000
+                op = (self.ram[self.pc] & OPCODE_MASK) >> 4
+                self.instructionSet.instructions[op].handle(self)
+                self.pc += 2
 
-            timeAfter = time.time() * 1000
-            elapsedTime = timeAfter - timeBefore
-            if elapsedTime < (MS_IN_SEC / RUN_FREQ_IN_HZ):
-                toSleep = ((MS_IN_SEC / RUN_FREQ_IN_HZ)) - elapsedTime
-                toSleep = toSleep / MS_IN_SEC
-                time.sleep(toSleep)
+                timeAfter = time.time() * 1000
+                elapsedTime = timeAfter - timeBefore
+                if elapsedTime < (MS_IN_SEC / RUN_FREQ_IN_HZ):
+                    toSleep = ((MS_IN_SEC / RUN_FREQ_IN_HZ)) - elapsedTime
+                    toSleep = toSleep / MS_IN_SEC
+                    time.sleep(toSleep)
 
-            self.delayCycle = (self.delayCycle + 1) % int((MS_IN_SEC / DELAY_CYCLE_PERIOD) / (MS_IN_SEC / RUN_FREQ_IN_HZ) + 1)
-            if 0 == self.delayCycle:
-                if self.D > 0x0:
-                    self.D -= 0x1
-                if self.S > 0x0:
-                    self.S -= 0x1
+                self.delayCycle = (self.delayCycle + 1) % int((MS_IN_SEC / DELAY_CYCLE_PERIOD) / (MS_IN_SEC / RUN_FREQ_IN_HZ) + 1)
+                if 0 == self.delayCycle:
+                    if self.D > 0x0:
+                        self.D -= 0x1
+                    if self.S > 0x0:
+                        self.S -= 0x1
 
 
 
