@@ -35,6 +35,8 @@ MISC_WAIT_KEY            = 0x0A
 MISC_WAIT_KEY_INDEX      = 0x6
 MISC_ADI                 = 0x1E
 MISC_ADI_INDEX           = 0x7
+MISC_STR_REG             = 0x55
+MISC_STR_REG_INDEX       = 0x8
 
 NUM_CRLRET_INSTRUCTINS   = 0x2
 CLRRET_RET               = 0xEE
@@ -107,6 +109,7 @@ class InstructionSet(object):
         self.instructions[0x8].subInstructions[0x2] = Instruction(self.execAndXY)
         self.instructions[0x8].subInstructions[0x4] = Instruction(self.execAddXY)
         self.instructions[0x8].subInstructions[0x5] = Instruction(self.execSubXY)
+        self.instructions[0x8].subInstructions[0x6] = Instruction(self.execShL)
         self.instructions[0xA] = Instruction(self.execSetI)
         self.instructions[0xC] = Instruction(self.execRandVX)
         self.instructions[0xD] = Instruction(self.execRendering)
@@ -120,6 +123,7 @@ class InstructionSet(object):
         self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX] = Instruction(self.execSetSndTmr)
         self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX] = Instruction(self.execKbRoutine)
         self.instructions[0xF].subInstructions[MISC_ADI_INDEX] = Instruction(self.execAdi)
+        self.instructions[0xF].subInstructions[MISC_STR_REG_INDEX] = Instruction(self.execStrReg)
 
     def getAddress(self, cpu):
         return ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -190,7 +194,7 @@ class InstructionSet(object):
         if subInstruction != 0xE:
             self.instructions[0x8].subInstructions[subInstruction].handle(cpu)
         else:
-            cpu.interrupt = SIG_ILL_INSTR
+            self.instructions[0x8].subInstructions[0x6].handle(cpu)
 
     def execAssignXY(self, cpu):
         regX = cpu.ram[cpu.pc] & ARG_HIGH_MASK
@@ -223,6 +227,12 @@ class InstructionSet(object):
         else:
             cpu.V[0xF] = 1
         cpu.V[regX] = val
+
+    def execShL(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        tmpVal = (cpu.V[reg] & 0x80) >> 8
+        cpu.V[0xF] = tmpVal
+        cpu.V[reg] = cpu.V[reg] << 1
 
     def execSetI(self, cpu):
         val = ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -300,6 +310,8 @@ class InstructionSet(object):
             self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX].handle(cpu)
         elif MISC_ADI == instruction:
             self.instructions[0xF].subInstructions[MISC_ADI_INDEX].handle(cpu)
+        elif MISC_STR_REG == instruction:
+            self.instructions[0xF].subInstructions[MISC_STR_REG_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -336,6 +348,11 @@ class InstructionSet(object):
     def execAdi(self, cpu):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         cpu.I += cpu.V[reg]
+
+    def execStrReg(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        for regIndex in range(reg + 1):
+            cpu.ram[cpu.I + regIndex] = cpu.V[regIndex]
 
 class Interrupt(object):
     def __init__(self, handle):
@@ -412,7 +429,6 @@ class Cpu(threading.Thread):
             else:
                 timeBefore = time.time() * 1000
                 op = (self.ram[self.pc] & OPCODE_MASK) >> 4
-                print("op: " + hex(op))
                 self.instructionSet.instructions[op].handle(self)
                 self.pc += 2
 
