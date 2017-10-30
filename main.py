@@ -9,7 +9,7 @@ if "__main__" == __name__:
     graphicsScale = 5
     print(str(sys.argv))
     if len(sys.argv) > 0:
-        if 'db' in sys.argv:
+        if '-db' in sys.argv:
             debug = True
         if '-r' in sys.argv:
             index = sys.argv.index('-r')

@@ -33,6 +33,8 @@ MISC_SET_SND_TIMER       = 0x18
 MISC_SET_SND_TIMER_INDEX = 0x5
 MISC_WAIT_KEY            = 0x0A
 MISC_WAIT_KEY_INDEX      = 0x6
+MISC_ADI                 = 0x1E
+MISC_ADI_INDEX           = 0x7
 
 NUM_CRLRET_INSTRUCTINS   = 0x2
 CLRRET_RET               = 0xEE
@@ -117,6 +119,7 @@ class InstructionSet(object):
         self.instructions[0xF].subInstructions[MISC_GET_DLY_TIMER_INDEX] = Instruction(self.execGetDlyTmr)
         self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX] = Instruction(self.execSetSndTmr)
         self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX] = Instruction(self.execKbRoutine)
+        self.instructions[0xF].subInstructions[MISC_ADI_INDEX] = Instruction(self.execAdi)
 
     def getAddress(self, cpu):
         return ((cpu.ram[cpu.pc] & ARG_HIGH_MASK) << 8) | cpu.ram[cpu.pc + 1]
@@ -295,6 +298,8 @@ class InstructionSet(object):
             self.instructions[0xF].subInstructions[MISC_SET_SND_TIMER_INDEX].handle(cpu)
         elif MISC_WAIT_KEY == instruction:
             self.instructions[0xF].subInstructions[MISC_WAIT_KEY_INDEX].handle(cpu)
+        elif MISC_ADI == instruction:
+            self.instructions[0xF].subInstructions[MISC_ADI_INDEX].handle(cpu)
         else:
             cpu.interrupt = SIG_ILL_INSTR
 
@@ -328,6 +333,10 @@ class InstructionSet(object):
         reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
         cpu.S = cpu.V[reg]
 
+    def execAdi(self, cpu):
+        reg = cpu.ram[cpu.pc] & ARG_HIGH_MASK
+        cpu.I += cpu.V[reg]
+
 class Interrupt(object):
     def __init__(self, handle):
         self.handle = handle
@@ -343,8 +352,9 @@ class Interrupts(object):
         self.interrupts[0x2] = Interrupt(self.stackUnderflow)
 
     def illegalInstr(self, cpu):
-        instr = (cpu.ram[cpu.pc] << 8) | cpu.ram[cpu.pc + 1]
-        print("Illegal instruction " + hex(instr) +  " at " + hex(cpu.pc - PRG_START_ADDR))
+        prevPc = cpu.pc - 2
+        instr = (cpu.ram[prevPc] << 8) | cpu.ram[prevPc + 1]
+        print("Illegal instruction " + hex(instr) +  " at " + hex(prevPc - PRG_START_ADDR))
         cpu.running = False
 
     def drawGraphics(self, cpu):
@@ -402,6 +412,7 @@ class Cpu(threading.Thread):
             else:
                 timeBefore = time.time() * 1000
                 op = (self.ram[self.pc] & OPCODE_MASK) >> 4
+                print("op: " + hex(op))
                 self.instructionSet.instructions[op].handle(self)
                 self.pc += 2
 
